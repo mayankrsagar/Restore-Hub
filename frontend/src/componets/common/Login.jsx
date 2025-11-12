@@ -1,33 +1,23 @@
 // src/componets/common/Login.jsx
-import {
-  useContext,
-  useState,
-} from 'react';
+import { useContext, useState } from "react";
 
-import { message } from 'antd';
-import {
-  Container,
-  Nav,
-} from 'react-bootstrap';
-import Navbar from 'react-bootstrap/Navbar';
-import {
-  Link,
-  useNavigate,
-} from 'react-router-dom';
+import { message } from "antd";
+import { Container } from "react-bootstrap";
+import { Link, useNavigate } from "react-router-dom";
 
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import Avatar from '@mui/material/Avatar';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
-import api from '../../api/axiosConfig';
-import { UserContext } from '../../App';
+import api from "../../api/axiosConfig";
+import { UserContext } from "../../App";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -85,7 +75,7 @@ const Login = () => {
 
   return (
     <>
-      <Navbar expand="lg" className="bg-body-tertiary">
+      {/* <Navbar expand="lg" className="bg-body-tertiary">
         <Container fluid>
           <Navbar.Brand>
             <h2>Restore Hub</h2>
@@ -108,7 +98,7 @@ const Login = () => {
             </Nav>
           </Navbar.Collapse>
         </Container>
-      </Navbar>
+      </Navbar> */}
 
       <div className="first-container">
         <Container

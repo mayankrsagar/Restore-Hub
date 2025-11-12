@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 
-import { message, Modal } from "antd";
+import { message, Modal, Rate } from "antd";
 import { Button, Card, Col, Container, Row, Spinner } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -17,6 +17,8 @@ const ItemDetails = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [buyModal, setBuyModal] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [userRating, setUserRating] = useState(null); // Buyer's existing rating
 
   const fetchDetails = async () => {
     try {
@@ -37,14 +39,29 @@ const ItemDetails = () => {
     }
   };
 
+  const fetchUserRating = async () => {
+    if (!userData || userData.type !== "buyer") return;
+    try {
+      const res = await api.get(`/user/seller/items/${itemId}/my-rating`);
+      if (res.data?.success) {
+        setUserRating(res.data.data.userRating);
+      } else {
+        setUserRating(null);
+      }
+    } catch {
+      setUserRating(null);
+    }
+  };
+
   useEffect(() => {
     if (!itemId) return;
     fetchDetails();
+    fetchUserRating();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId]);
+  }, [itemId, userData?.id]);
 
   const handleBack = () => {
-    navigate("/items");
+    navigate(-1); // More intuitive than navigating to /items
   };
 
   // Determine ownership
@@ -100,7 +117,7 @@ const ItemDetails = () => {
     setBuyModal(false);
     try {
       setActionLoading(true);
-      const res = await api.post(`/user/buy/${itemId}`);
+      const res = await api.post(`/user/orders/buy/${itemId}`);
       if (res.data?.success) {
         message.success(res.data.message || "Purchase successful");
         if (typeof fetchMe === "function") await fetchMe();
@@ -115,6 +132,31 @@ const ItemDetails = () => {
       );
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Submit rating (buyers only)
+  const handleRatingSubmit = async (value) => {
+    if (userData?.type !== "buyer" || isOwner) return;
+
+    setRatingLoading(true);
+    try {
+      const res = await api.post(`/user/seller/items/${itemId}/rate`, {
+        rating: value,
+      });
+      if (res.data?.success) {
+        message.success("Rating submitted successfully");
+        setUserRating(value);
+        // Refresh item details to show updated average
+        fetchDetails();
+      } else {
+        message.error(res.data?.message || "Failed to submit rating");
+      }
+    } catch (err) {
+      console.error("Rating submission failed:", err);
+      message.error("Failed to submit rating");
+    } finally {
+      setRatingLoading(false);
     }
   };
 
@@ -165,8 +207,7 @@ const ItemDetails = () => {
         <Container className="text-center py-5">
           <h5 className="text-muted">Item not found</h5>
           <p className="text-muted">
-            {`This item may have been removed or doesn't exist.
-          `}
+            {`This item may have been removed or doesn't exist.`}
           </p>
           <Button variant="primary" onClick={handleBack}>
             Go Back
@@ -178,6 +219,8 @@ const ItemDetails = () => {
 
   return (
     <>
+      <NavBar />
+
       <Container className="mt-4">
         <Card className="shadow-sm">
           <Row className="g-0">
@@ -213,6 +256,39 @@ const ItemDetails = () => {
                   <span className="text-success fw-bold fs-5">
                     {itemDetail.price ?? "N/A"}
                   </span>
+                </div>
+
+                {/* Rating Section */}
+                <div className="mb-3">
+                  <strong className="d-block mb-1">Rating:</strong>
+                  {userData?.type === "buyer" && !isOwner ? (
+                    <div className="d-flex align-items-center gap-2">
+                      <Rate
+                        value={userRating ?? 0}
+                        onChange={handleRatingSubmit}
+                        disabled={ratingLoading}
+                        allowHalf
+                      />
+                      {userRating !== null && (
+                        <small className="text-muted">
+                          You rated this {userRating} star
+                          {userRating !== 1 ? "s" : ""}
+                        </small>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="d-flex align-items-center gap-2">
+                      <Rate
+                        value={itemDetail.rating?.average || 0}
+                        disabled
+                        allowHalf
+                      />
+                      <small className="text-muted">
+                        ({itemDetail.rating?.count || 0} rating
+                        {itemDetail.rating?.count !== 1 ? "s" : ""})
+                      </small>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-3">
@@ -291,6 +367,7 @@ const ItemDetails = () => {
         onCancel={() => setDeleteModal(false)}
         okText="Delete"
         okButtonProps={{ danger: true }}
+        confirmLoading={actionLoading}
       >
         <p>
           Are you sure you want to delete this item? This action cannot be
@@ -305,7 +382,7 @@ const ItemDetails = () => {
         onOk={confirmBuy}
         onCancel={() => setBuyModal(false)}
         okText="Confirm Buy"
-        okButtonProps={{ type: "primary", danger: false }}
+        confirmLoading={actionLoading}
       >
         <p>Are you sure you want to buy this item?</p>
       </Modal>

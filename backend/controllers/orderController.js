@@ -1,5 +1,5 @@
 // controllers/orderController.js
-import itemSchema from "../schemas/itemModel.js";
+import Item from "../schemas/itemModel.js";
 import Order from "../schemas/orderModel.js"; // path adjust if needed
 
 export const buyItemController = async (req, res) => {
@@ -10,7 +10,7 @@ export const buyItemController = async (req, res) => {
     if (!buyerId)
       return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    const item = await itemSchema.findById(itemId);
+    const item = await Item.findById(itemId);
     if (!item)
       return res
         .status(404)
@@ -42,9 +42,6 @@ export const buyItemController = async (req, res) => {
     });
 
     await order.save();
-
-    // OPTIONAL: you might mark the item as sold or remove it. For now we leave it as-is.
-    // await itemSchema.findByIdAndUpdate(itemId, { sold: true });
 
     return res
       .status(201)

@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 
-const itemModel = new mongoose.Schema(
+const itemSchema = new mongoose.Schema(
   {
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
+      required: true,
     },
     name: {
       type: String,
@@ -33,12 +34,55 @@ const itemModel = new mongoose.Schema(
     photo: {
       type: Object,
     },
+
+    // Store individual ratings per user
+    ratings: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        value: { type: Number, min: 1, max: 5 },
+      },
+    ],
+
+    // Cached average and count for quick queries
+    ratingAverage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    ratingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // Optional soft delete flag
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-const itemSchema = mongoose.models.item || mongoose.model("item", itemModel);
+// Virtual to get rating object { average, count }
+itemSchema.virtual("rating").get(function () {
+  return {
+    average: this.ratingAverage || 0,
+    count: this.ratingCount || 0,
+  };
+});
 
-export default itemSchema;
+// Indexes for performance
+itemSchema.index({ sellerId: 1 });
+itemSchema.index({ ratingAverage: -1 });
+itemSchema.index({ type: 1 });
+itemSchema.index({ isDeleted: 1 });
+
+const Item = mongoose.models.Item || mongoose.model("Item", itemSchema);
+
+export default Item;

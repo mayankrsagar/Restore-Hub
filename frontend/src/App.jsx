@@ -11,12 +11,13 @@ import {
 } from "react-router-dom";
 
 import api from "./api/axiosConfig";
+import BoughtItems from "./componets/common/BoughtItems";
 import Dashboard from "./componets/common/Dashboard";
 import Home from "./componets/common/Home";
 import ItemDetails from "./componets/common/ItemDetails";
 import Items from "./componets/common/Items/items";
 import Login from "./componets/common/Login";
-import NavBar from "./componets/common/NavBar";
+import Profile from "./componets/common/Profile";
 import Register from "./componets/common/Register";
 import EditItem from "./componets/seller/EditItem";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -52,7 +53,7 @@ function App() {
     <UserContext.Provider value={{ userData, setUserData, fetchMe }}>
       <div className="App">
         <Router>
-          <NavBar />
+          {/* <NavBar /> */}
           <div className="content">
             <Routes>
               <Route
@@ -97,6 +98,22 @@ function App() {
                 element={
                   <ProtectedRoute loading={loadingAuth}>
                     <EditItem />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="my-purchases"
+                element={
+                  <ProtectedRoute loading={loadingAuth}>
+                    <BoughtItems />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute loading={loadingAuth}>
+                    <Profile />
                   </ProtectedRoute>
                 }
               />

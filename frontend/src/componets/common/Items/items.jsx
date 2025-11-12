@@ -18,6 +18,7 @@ import CardMedia from "@mui/material/CardMedia";
 
 import api from "../../../api/axiosConfig";
 import { UserContext } from "../../../App";
+import NavBar from "../NavBar";
 
 const PAGE_LIMIT = 6;
 
@@ -203,6 +204,7 @@ const Items = () => {
 
   return (
     <>
+      <NavBar />
       <Container fluid className="mt-4">
         {/* Header */}
         <div className="mb-4">

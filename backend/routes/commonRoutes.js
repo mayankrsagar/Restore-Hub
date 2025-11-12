@@ -1,4 +1,4 @@
-import express from 'express';
+import express from "express";
 
 import {
   getMeController,
@@ -7,8 +7,11 @@ import {
   registerController,
   sendAllItemsController,
   sendItemDetailsController,
-} from '../controllers/commonController.js';
-import authMiddleware from '../middlewares/authMiddleware.js';
+  updateAvatarController,
+  updateProfileController,
+} from "../controllers/commonController.js";
+import authMiddleware from "../middlewares/authMiddleware.js";
+import upload from "../middlewares/multer.js";
 
 const router = express.Router();
 
@@ -22,6 +25,14 @@ router.get(
   "/fetchitemdetails/:itemId",
   authMiddleware,
   sendItemDetailsController
+);
+
+router.put("/profile", authMiddleware, updateProfileController);
+router.post(
+  "/upload-avatar",
+  authMiddleware,
+  upload.single("avatar"),
+  updateAvatarController
 );
 
 router.post("/logout", authMiddleware, logoutController);
