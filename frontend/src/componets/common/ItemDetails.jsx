@@ -279,13 +279,13 @@ const ItemDetails = () => {
                   ) : (
                     <div className="d-flex align-items-center gap-2">
                       <Rate
-                        value={itemDetail.rating?.average || 0}
+                        value={itemDetail.ratingAverage || 0}
                         disabled
                         allowHalf
                       />
                       <small className="text-muted">
-                        ({itemDetail.rating?.count || 0} rating
-                        {itemDetail.rating?.count !== 1 ? "s" : ""})
+                        ({itemDetail.ratingCount || 0} rating
+                        {itemDetail.ratingCount !== 1 ? "s" : ""})
                       </small>
                     </div>
                   )}
