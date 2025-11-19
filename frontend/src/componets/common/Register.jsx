@@ -1,264 +1,237 @@
-// src/componets/common/Register.jsx
 import { useState } from "react";
 
-import { message } from "antd";
-import { Container } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import Avatar from "@mui/material/Avatar";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
-import InputAdornment from "@mui/material/InputAdornment";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
-
 import api from "../../api/axiosConfig";
+import Footer from "./Footer";
+import Header from "./Header";
 
-const Register = () => {
+export default function Register() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
     type: "",
   });
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [status, setStatus] = useState({
+    loading: false,
+    error: "",
+    success: "",
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setForm((p) => ({ ...p, [name]: value }));
+    setStatus({ loading: false, error: "", success: "" });
   };
 
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
+  const validate = () => {
+    if (!form.name.trim()) return "Name is required";
+    if (!form.email.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim()))
+      return "Please enter a valid email address";
+    const phoneClean = (form.phone || "").replace(/\s+/g, "");
+    if (!/^\d{10,15}$/.test(phoneClean))
+      return "Please enter a valid phone number (10-15 digits)";
+    if (!form.password || form.password.length < 6)
+      return "Password must be at least 6 characters";
+    if (!form.type) return "Please select user type (buyer or seller)";
+    return "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate required fields
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.password ||
-      !formData.type
-    ) {
-      message.warning("Please fill all required fields");
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      message.warning("Please enter a valid email address");
-      return;
-    }
-
-    // Phone validation (10-15 digits)
-    const phoneRegex = /^\d{10,15}$/;
-    if (!phoneRegex.test(formData.phone.replace(/\s+/g, ""))) {
-      message.warning("Please enter a valid phone number (10-15 digits)");
-      return;
-    }
-
-    // Password length validation
-    if (formData.password.length < 6) {
-      message.warning("Password must be at least 6 characters long");
+    const err = validate();
+    if (err) {
+      setStatus({ loading: false, error: err, success: "" });
       return;
     }
 
     try {
-      setLoading(true);
-
-      const submissionData = {
-        ...formData,
-        email: formData.email.toLowerCase().trim(),
-        phone: formData.phone.trim(),
+      setStatus({ loading: true, error: "", success: "" });
+      const submission = {
+        ...form,
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
       };
 
-      const res = await api.post("/user/register", submissionData);
-      if (res.data?.success) {
-        message.success(
-          res.data.message || "Registered successfully! Please login."
-        );
-        navigate("/login");
+      const res = await api.post("/user/register", submission);
+
+      if (res?.data?.success) {
+        setStatus({
+          loading: false,
+          error: "",
+          success: res.data.message || "Registered successfully. Please login.",
+        });
+        // redirect to login after short delay so user sees success
+        setTimeout(() => navigate("/login"), 900);
       } else {
-        message.error(res.data?.message || "Registration failed");
+        setStatus({
+          loading: false,
+          error: res?.data?.message || "Registration failed",
+          success: "",
+        });
       }
     } catch (err) {
       console.error("Register error:", err);
-      const errorMessage =
-        err.response?.data?.message ||
+      const msg =
+        err?.response?.data?.message ??
         "Something went wrong. Please try again.";
-      message.error(errorMessage);
-    } finally {
-      setLoading(false);
+      setStatus({ loading: false, error: msg, success: "" });
     }
   };
 
   return (
-    <div className="first-container">
-      <Container
-        component="main"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          // minHeight: "100vh",
-          // paddingTop: 24,
-          // paddingBottom: 96,
-        }}
-      >
-        {/* Match Login's visual layout: modest padding, small border radius, no heavy box-shadow */}
-        <Box
-          sx={{
-            // marginTop: 8,
-            marginBottom: 4,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            padding: "10px",
-            borderRadius: "5px",
-            width: "100%",
-            maxWidth: 420,
-            // Avoid overriding background so it visually matches Login
-            // Remove heavy boxShadow/backgroundColor to be same as login page
-            position: "relative",
-          }}
-        >
-          <Avatar sx={{ bgcolor: "secondary.main", mb: 1 }} />
-          <Typography component="h1" variant="h5" sx={{ mb: 1 }}>
-            Register
-          </Typography>
+    <div className="min-h-screen flex flex-col">
+      <Header />
 
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            noValidate
-            sx={{ width: "100%" }}
-          >
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="name"
-              label="Full Name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              autoComplete="name"
-              autoFocus
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              autoComplete="email"
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="phone"
-              label="Phone Number"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              autoComplete="tel"
-              placeholder="Enter 10-15 digit number"
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              id="password"
-              autoComplete="new-password"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleClickShowPassword}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+      <main className="flex-grow flex items-center justify-center py-12 px-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-semibold text-amber-800 text-center">
+            Create an account
+          </h2>
+          <p className="text-sm text-amber-600 text-center mt-2">
+            Join Restore Hub to list items or buy restored goods.
+          </p>
 
-            <TextField
-              select
-              required
-              margin="normal"
-              fullWidth
-              id="type"
-              label="User Type"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-            >
-              <MenuItem value="">
-                <em>Select Type</em>
-              </MenuItem>
-              <MenuItem value="buyer">Buyer</MenuItem>
-              <MenuItem value="seller">Seller</MenuItem>
-            </TextField>
+          {status.error && (
+            <div className="mt-4 text-sm text-rose-700 bg-rose-50 p-3 rounded">
+              {status.error}
+            </div>
+          )}
+          {status.success && (
+            <div className="mt-4 text-sm text-emerald-700 bg-emerald-50 p-3 rounded">
+              {status.success}
+            </div>
+          )}
 
-            {/* Button styled to match Login (centered, 200px width) */}
-            <Box mt={2} display="flex" justifyContent="center">
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{ mt: 1, mb: 2 }}
-                style={{ width: "200px" }}
-                disabled={loading}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-3" noValidate>
+            <div>
+              <label className="block text-sm font-medium text-amber-700">
+                Full name
+              </label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700">
+                Email
+              </label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700">
+                Phone
+              </label>
+              <input
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="Mobile number (10-15 digits)"
+                className="mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700">
+                Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={handleChange}
+                  className="block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-2 top-2 text-sm text-amber-600"
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-amber-700">
+                Account type
+              </label>
+              <select
+                name="type"
+                value={form.type}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                required
               >
-                {loading ? "Signing Up..." : "Sign Up"}
-              </Button>
-            </Box>
+                <option value="">Select account type</option>
+                <option value="buyer">Buyer</option>
+                <option value="seller">Seller</option>
+              </select>
+            </div>
 
-            <Grid container>
-              <Grid item>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Have an account?
-                  <Link
-                    to="/login"
-                    style={{
-                      color: "blue",
-                      marginLeft: 6,
-                      textDecoration: "none",
-                    }}
-                  >
-                    Sign In
-                  </Link>
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
-        </Box>
-      </Container>
+            <div className="mt-4 flex justify-center">
+              <button
+                type="submit"
+                disabled={status.loading}
+                className={`px-4 py-2 rounded-md text-white font-medium ${
+                  status.loading
+                    ? "bg-amber-300"
+                    : "bg-amber-700 hover:bg-amber-800"
+                }`}
+              >
+                {status.loading ? "Signing up…" : "Sign Up"}
+              </button>
+            </div>
+
+            <div className="mt-3 text-sm text-center text-amber-600">
+              Already have an account?{" "}
+              <Link to="/login" className="text-amber-700 hover:underline">
+                Sign in
+              </Link>
+            </div>
+
+            <div className="mt-4 flex gap-3">
+              <Link
+                to="/"
+                className="flex-1 px-3 py-2 rounded-md border text-center border-amber-200 text-amber-700"
+              >
+                Visit Home
+              </Link>
+              <Link
+                to="/items"
+                className="flex-1 px-3 py-2 rounded-md bg-amber-700 text-white text-center"
+              >
+                Browse Items
+              </Link>
+            </div>
+          </form>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
-};
-
-export default Register;
+}

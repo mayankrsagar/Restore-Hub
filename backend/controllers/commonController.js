@@ -1,9 +1,15 @@
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+/////////// UPDATE PROFILE
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import path from 'path';
 
-import Item from "../schemas/itemModel.js";
-import User from "../schemas/userModel.js";
-import { deleteFromCloudinary, handleUpload } from "../utils/cloudinary.js";
+import Item from '../schemas/itemModel.js';
+import User from '../schemas/userModel.js';
+// add at top of the file (adjust relative path if needed)
+import {
+  deleteFromCloudinary,
+  handleUpload,
+} from '../utils/cloudinary.js';
 
 // Helper to extract user ID consistently
 const getUserId = (req) => req.user?.id || req.user?._id;
@@ -266,13 +272,13 @@ export const getMeController = async (req, res) => {
   }
 };
 
-/////////// UPDATE PROFILE
 export const updateProfileController = async (req, res) => {
   const userId = getUserId(req);
   if (!userId) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
+  // Fields allowed for normal profile updates (do NOT include password here)
   const allowedFields = [
     "name",
     "phone",
@@ -286,18 +292,17 @@ export const updateProfileController = async (req, res) => {
     "preferredContact",
   ];
 
-  const updateData = sanitizeFields(req.body, allowedFields);
+  const updateData = sanitizeFields(req.body || {}, allowedFields);
 
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
-    // Handle email change with uniqueness check
+    // ---------- Email change (uniqueness) ----------
     if (updateData.email) {
       updateData.email = updateData.email.toLowerCase().trim();
       if (updateData.email !== user.email) {
@@ -311,8 +316,56 @@ export const updateProfileController = async (req, res) => {
       }
     }
 
-    // Update only provided fields
+    // ---------- Password change (if requested) ----------
+    // Expect the client to send currentPassword, newPassword, confirmPassword to change password
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+
+    if (
+      currentPassword !== undefined ||
+      newPassword !== undefined ||
+      confirmPassword !== undefined
+    ) {
+      // If any password field is present, require all three
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "To change password provide currentPassword, newPassword and confirmPassword.",
+        });
+      }
+
+      // confirm match
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "New password and confirm password do not match.",
+        });
+      }
+
+      // verify current password using model instance method
+      const validCurrent = await user.comparePassword(currentPassword);
+      if (!validCurrent) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is incorrect.",
+        });
+      }
+
+      // optional: enforce password policy here
+      if (typeof newPassword !== "string" || newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters long.",
+        });
+      }
+
+      // assign new password; pre-save hook will hash it
+      user.password = newPassword;
+    }
+
+    // ---------- Update other profile fields ----------
     Object.keys(updateData).forEach((key) => {
+      // assign if provided and not empty string
       if (updateData[key] !== undefined && updateData[key] !== "") {
         user[key] = updateData[key];
       }
@@ -320,10 +373,13 @@ export const updateProfileController = async (req, res) => {
 
     await user.save();
 
+    // user.toJSON() will apply your model transform (removes password, formats avatar/rating)
+    const safeUser = typeof user.toJSON === "function" ? user.toJSON() : user;
+
     return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: user.toJSON(),
+      user: safeUser,
     });
   } catch (error) {
     console.error("Error updating profile:", error);
@@ -398,6 +454,102 @@ export const updateAvatarController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update avatar",
+    });
+  }
+};
+
+/**
+ * Delete the logged-in user and remove their avatar from Cloudinary (if present).
+ */
+export const deleteUserController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Helper: extract Cloudinary public_id from different avatar shapes
+    const extractPublicIds = (avatar) => {
+      if (!avatar) return [];
+
+      // If avatar is an array (multiple images)
+      if (Array.isArray(avatar)) {
+        return avatar.flatMap((a) => extractPublicIds(a));
+      }
+
+      // If avatar is an object with public_id (recommended)
+      if (typeof avatar === "object" && avatar.public_id) {
+        return [avatar.public_id];
+      }
+
+      // If avatar is a string (likely a Cloudinary URL)
+      if (typeof avatar === "string") {
+        try {
+          // Try to parse public_id from a Cloudinary URL:
+          // e.g. https://res.cloudinary.com/<cloud>/image/upload/v1234567/folder/subfolder/public_id.jpg
+          const afterUpload = avatar.split("/upload/").pop();
+          if (!afterUpload) return [];
+          // remove version (v12345/) if present
+          const withoutVersion = afterUpload.replace(/^v\d+\//, "");
+          // remove query string if any
+          const noQuery = withoutVersion.split("?")[0];
+          // remove file extension
+          const publicIdWithPath = noQuery.replace(path.extname(noQuery), "");
+          return publicIdWithPath ? [publicIdWithPath] : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      return [];
+    };
+
+    const publicIds = extractPublicIds(user.avatar);
+
+    // Attempt to delete avatars from Cloudinary (if any). Do not fail deletion if Cloudinary call fails.
+    if (publicIds.length > 0) {
+      for (const pid of publicIds) {
+        try {
+          await deleteFromCloudinary(pid);
+        } catch (err) {
+          console.error(`Failed to delete avatar ${pid} from Cloudinary:`, err);
+          // continue - we don't abort user deletion just for Cloudinary problems
+        }
+      }
+    }
+
+    // Delete user account (use deleteOne or remove depending on your mongoose version/hooks)
+    await User.deleteOne({ _id: userId });
+
+    // Clear login cookie (logout)
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while deleting user",
     });
   }
 };

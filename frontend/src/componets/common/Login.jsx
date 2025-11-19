@@ -1,193 +1,210 @@
-// src/componets/common/Login.jsx
 import { useContext, useState } from "react";
 
-import { message } from "antd";
-import { Container } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
-
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import Avatar from "@mui/material/Avatar";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
-import InputAdornment from "@mui/material/InputAdornment";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 
 import api from "../../api/axiosConfig";
 import { UserContext } from "../../App";
+import Footer from "./Footer";
+import Header from "./Header";
 
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate();
-  const { fetchMe } = useContext(UserContext);
-
-  const [data, setData] = useState({
-    email: "",
-    password: "",
-  });
+  const { fetchMe } = useContext(UserContext) || {};
+  const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [status, setStatus] = useState({
+    loading: false,
+    error: "",
+    success: "",
+  });
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setData((prev) => ({ ...prev, [name]: value }));
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+    setStatus({ loading: false, error: "", success: "" });
   };
 
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
+  const validate = () => {
+    if (!form.email?.trim() || !form.password)
+      return "Please fill in both email and password.";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim()))
+      return "Please enter a valid email address.";
+    return "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setStatus({ loading: false, error: "", success: "" });
 
-    if (!data?.email || !data?.password) {
-      message.warning("Please fill all fields");
+    const err = validate();
+    if (err) {
+      setStatus((s) => ({ ...s, error: err }));
       return;
     }
 
     try {
-      const res = await api.post("/user/login", data);
-      if (res.data?.success) {
-        message.success(res.data.message || "Logged in successfully");
+      setStatus({ loading: true, error: "", success: "" });
 
-        if (res.data.userData) {
-          localStorage.setItem("user", JSON.stringify(res.data.userData));
-        }
+      // Login request — backend should set session cookie or return token via response.
+      const res = await api.post("/user/login", {
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
 
+      if (res?.data?.success) {
+        // Do NOT use . Rely on fetchMe to refresh context from server-side session.
         if (typeof fetchMe === "function") {
           await fetchMe();
         }
 
+        setStatus({
+          loading: false,
+          error: "",
+          success: res.data.message || "Logged in successfully",
+        });
         navigate("/dashboard");
       } else {
-        message.error(res.data?.message || "Login failed");
+        setStatus({
+          loading: false,
+          error: res?.data?.message || "Login failed",
+          success: "",
+        });
       }
     } catch (err) {
       console.error("Login error:", err);
-      if (err.response && err.response.status === 401) {
-        message.error("Invalid credentials");
-      } else {
-        message.error("Something went wrong. Please try again.");
-      }
+      const msg =
+        err?.response?.data?.message ??
+        "Something went wrong. Please try again.";
+      setStatus({ loading: false, error: msg, success: "" });
     }
   };
 
   return (
-    <>
-      {/* <Navbar expand="lg" className="bg-body-tertiary">
-        <Container fluid>
-          <Navbar.Brand>
-            <h2>Restore Hub</h2>
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="navbarScroll" />
-          <Navbar.Collapse id="navbarScroll">
-            <Nav
-              className="me-auto my-2 my-lg-0"
-              style={{ maxHeight: "100px" }}
-              navbarScroll
-            ></Nav>
-            <Nav>
-              <Link to={"/"} style={{ marginRight: 10 }}>
-                Home
-              </Link>
-              <Link to={"/login"} style={{ marginRight: 10 }}>
-                Login
-              </Link>
-              <Link to={"/register"}>Register</Link>
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar> */}
+    <div className="min-h-screen flex flex-col">
+      <Header />
 
-      <div className="first-container">
-        <Container
-          component="main"
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Box
-            sx={{
-              marginTop: 8,
-              marginBottom: 4,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              padding: "10px",
-              borderRadius: "5px",
-            }}
-          >
-            <Avatar sx={{ bgcolor: "secondary.main" }}></Avatar>
-            <Typography component="h1" variant="h5">
-              Sign In
-            </Typography>
-            <Box component="form" onSubmit={handleSubmit} noValidate>
-              <TextField
-                margin="normal"
-                fullWidth
+      <main className="flex-grow flex items-center justify-center py-12 px-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-semibold text-amber-800 text-center">
+            Sign in
+          </h2>
+          <p className="text-sm text-amber-600 text-center mt-2">
+            Sign in to manage your items or continue exploring the platform.
+          </p>
+
+          {status.error && (
+            <div className="mt-4 text-sm text-rose-700 bg-rose-50 p-3 rounded">
+              {status.error}
+            </div>
+          )}
+          {status.success && (
+            <div className="mt-4 text-sm text-emerald-700 bg-emerald-50 p-3 rounded">
+              {status.success}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-amber-700"
+              >
+                Email
+              </label>
+              <input
                 id="email"
-                label="Email Address"
                 name="email"
-                value={data.email}
+                type="email"
+                value={form.email}
                 onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                required
                 autoComplete="email"
-                autoFocus
               />
-              <TextField
-                margin="normal"
-                fullWidth
-                name="password"
-                value={data.password}
-                onChange={handleChange}
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                id="password"
-                autoComplete="current-password"
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={handleClickShowPassword}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Box mt={2}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  sx={{ mt: 3, mb: 2 }}
-                  style={{ width: "200px" }}
-                >
-                  Sign In
-                </Button>
-              </Box>
-              <Grid container>
-                <Grid item>
-                  Have an account?
-                  <Link
-                    style={{ color: "blue", marginLeft: 6 }}
-                    to={"/register"}
-                    variant="body2"
-                  >
-                    {" Sign Up"}
-                  </Link>
-                </Grid>
-              </Grid>
-            </Box>
-          </Box>
-        </Container>
-      </div>
-    </>
-  );
-};
+            </div>
 
-export default Login;
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-amber-700"
+              >
+                Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={handleChange}
+                  className="block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-2 top-2 text-sm text-amber-600"
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2">
+              <div className="text-sm">
+                <Link to="/register" className="text-amber-700 hover:underline">
+                  Create account
+                </Link>
+              </div>
+              <div className="text-sm">
+                <Link
+                  to="/forgot-password"
+                  className="text-amber-700 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="submit"
+                disabled={status.loading}
+                className={`w-full px-4 py-2 rounded-md text-white font-medium ${
+                  status.loading
+                    ? "bg-amber-300 cursor-not-allowed"
+                    : "bg-amber-700 hover:bg-amber-800"
+                }`}
+              >
+                {status.loading ? "Signing in…" : "Sign In"}
+              </button>
+            </div>
+
+            <div className="mt-4 text-center text-sm">
+              <span className="text-amber-600">Or</span>
+            </div>
+
+            <div className="mt-2 flex gap-3">
+              <Link
+                to="/"
+                className="flex-1 px-3 py-2 rounded-md border text-center border-amber-200 text-amber-700"
+              >
+                Visit Home
+              </Link>
+              <Link
+                to="/items"
+                className="flex-1 px-3 py-2 rounded-md bg-amber-700 text-white text-center"
+              >
+                Browse Items
+              </Link>
+            </div>
+          </form>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

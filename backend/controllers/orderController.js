@@ -1,6 +1,6 @@
 // controllers/orderController.js
-import Item from "../schemas/itemModel.js";
-import Order from "../schemas/orderModel.js"; // path adjust if needed
+import Item from '../schemas/itemModel.js';
+import Order from '../schemas/orderModel.js'; // path adjust if needed
 
 export const buyItemController = async (req, res) => {
   try {

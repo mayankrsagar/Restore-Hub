@@ -1,10 +1,10 @@
-import { useContext } from 'react';
-
-import PropTypes from 'prop-types';
 // src/routes/ProtectedRoute.js
-import { Navigate } from 'react-router-dom';
+import { useContext } from "react";
 
-import { UserContext } from '../App';
+import PropTypes from "prop-types";
+import { Navigate } from "react-router-dom";
+
+import { UserContext } from "../App";
 
 /**
  * ProtectedRoute — wraps private components.
@@ -14,7 +14,14 @@ import { UserContext } from '../App';
 function ProtectedRoute({ children, loading }) {
   const { userData } = useContext(UserContext);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    // nicer loading UI (tailwind-friendly)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-amber-400 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return userData ? children : <Navigate to="/login" replace />;
 }

@@ -1,26 +1,33 @@
 // src/App.jsx
-import "./App.css";
+import './App.css';
 
-import { createContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   BrowserRouter as Router,
   Navigate,
   Route,
   Routes,
-} from "react-router-dom";
+} from 'react-router-dom';
 
-import api from "./api/axiosConfig";
-import BoughtItems from "./componets/common/BoughtItems";
-import Dashboard from "./componets/common/Dashboard";
-import Home from "./componets/common/Home";
-import ItemDetails from "./componets/common/ItemDetails";
-import Items from "./componets/common/Items/items";
-import Login from "./componets/common/Login";
-import Profile from "./componets/common/Profile";
-import Register from "./componets/common/Register";
-import EditItem from "./componets/seller/EditItem";
-import ProtectedRoute from "./routes/ProtectedRoute";
+import api from './api/axiosConfig';
+import BoughtItems from './componets/common/BoughtItems';
+import Dashboard from './componets/common/Dashboard';
+import Home from './componets/common/Home';
+import ItemDetails from './componets/common/ItemDetails';
+import Items from './componets/common/Items/items';
+import Login from './componets/common/Login';
+import Profile from './componets/common/Profile';
+import Register from './componets/common/Register';
+import EditItem from './componets/seller/EditItem';
+// optional pages you added earlier — adjust paths if they are different
+import About from './pages/About';
+import Contact from './pages/Contact';
+import ProtectedRoute from './routes/ProtectedRoute';
 
 export const UserContext = createContext();
 
@@ -51,21 +58,22 @@ function App() {
 
   return (
     <UserContext.Provider value={{ userData, setUserData, fetchMe }}>
-      <div className="App">
+      <div className="App min-h-screen flex flex-col">
         <Router>
-          {/* <NavBar /> */}
-          <div className="content">
+          <div className="content flex-grow">
             <Routes>
               <Route
                 path="/"
                 element={
-                  <ProtectedRoute loading={loadingAuth}>
-                    <Home />
-                  </ProtectedRoute>
+                  // <ProtectedRoute loading={loadingAuth}>
+                  <Home />
+                  // </ProtectedRoute>
                 }
               />
+
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+
               <Route
                 path="/item-details/:itemId"
                 element={
@@ -74,7 +82,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              {/* ✅ FIXED: Added missing loading prop */}
+
               <Route
                 path="/dashboard"
                 element={
@@ -83,7 +91,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              {/* ✅ FIXED: Added missing loading prop for Items route */}
+
               <Route
                 path="/items"
                 element={
@@ -92,7 +100,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              {/* ✅ FIXED: Added missing loading prop for edit-item route */}
+
               <Route
                 path="/edit-item/:itemId"
                 element={
@@ -101,14 +109,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
               <Route
-                path="my-purchases"
+                path="/my-purchases"
                 element={
                   <ProtectedRoute loading={loadingAuth}>
                     <BoughtItems />
                   </ProtectedRoute>
                 }
               />
+
               <Route
                 path="/profile"
                 element={
@@ -117,14 +127,19 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+
+              {/* About & Contact (public pages) */}
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+
               {/* Fallback route */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
 
-          <footer className="footer bg-light text-center text-lg-start">
-            <div className="text-center p-3">
-              © {date} Copyright: Restore Hub
+          <footer className="footer bg-amber-50 text-center text-lg-start">
+            <div className="text-center p-3 text-amber-600">
+              © {date} Restore Hub
             </div>
           </footer>
         </Router>

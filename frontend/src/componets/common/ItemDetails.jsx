@@ -1,393 +1,573 @@
 import { useContext, useEffect, useState } from "react";
 
-import { message, Modal, Rate } from "antd";
-import { Button, Card, Col, Container, Row, Spinner } from "react-bootstrap";
+import PropTypes from "prop-types";
 import { useNavigate, useParams } from "react-router-dom";
 
 import api from "../../api/axiosConfig";
 import { UserContext } from "../../App";
-import NavBar from "./NavBar";
+import Footer from "./Footer";
+import Header from "./Header";
 
-const ItemDetails = () => {
+/**
+ * ItemDetails — Tailwind version
+ *
+ * - Uses formatDateIST for all displayed dates
+ * - StarRow uses unique gradient ids for half stars
+ * - Minor safety checks and loading state handling
+ */
+
+const formatDateIST = (d) => {
+  try {
+    return new Date(d).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  } catch {
+    return d || "";
+  }
+};
+
+const StarRow = ({ value }) => {
+  // value is numeric, can be .5 increments
+  const fullStars = Math.floor(value);
+  const half = value - fullStars >= 0.5;
+  const stars = [];
+  for (let i = 0; i < fullStars; i++) stars.push("full");
+  if (half) stars.push("half");
+  while (stars.length < 5) stars.push("empty");
+
+  return (
+    <div className="flex items-center gap-1">
+      {stars.map((s, i) => {
+        // create unique id per half star to avoid defs collision in DOM
+        const gradId = `halfGrad-${value}-${i}`;
+        return (
+          <svg
+            key={i}
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill={
+              s === "full"
+                ? "#b45309"
+                : s === "half"
+                ? `url(#${gradId})`
+                : "none"
+            }
+            stroke="#b45309"
+            strokeWidth="1"
+            className="inline-block"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+            role="img"
+          >
+            {s === "half" && (
+              <defs>
+                <linearGradient id={gradId}>
+                  <stop offset="50%" stopColor="#b45309" />
+                  <stop offset="50%" stopColor="transparent" />
+                </linearGradient>
+              </defs>
+            )}
+            <path d="M12 .587l3.668 7.431L23.5 9.75l-5.5 5.364L19.334 24 12 19.897 4.666 24 6 15.114 0.5 9.75l7.832-1.732L12 .587z" />
+          </svg>
+        );
+      })}
+    </div>
+  );
+};
+
+StarRow.propTypes = {
+  value: PropTypes.number.isRequired,
+};
+
+export default function ItemDetails() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const { userData, fetchMe } = useContext(UserContext) || {};
+
   const [itemDetail, setItemDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [buyModal, setBuyModal] = useState(false);
-  const [ratingLoading, setRatingLoading] = useState(false);
-  const [userRating, setUserRating] = useState(null); // Buyer's existing rating
 
+  const [actionLoading, setActionLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
+
+  const [alert, setAlert] = useState(null); // {type: 'success'|'error'|'info', text}
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [userRating, setUserRating] = useState(null); // buyer's previous rating
+  const [ratingValue, setRatingValue] = useState(0); // slider-controlled value (0.5 steps)
+
+  // fetch item details
   const fetchDetails = async () => {
+    if (!itemId) return;
+    setLoading(true);
+    setAlert(null);
     try {
-      setLoading(true);
       const res = await api.get(`/user/fetchitemdetails/${itemId}`);
-      if (res.data?.success) {
-        setItemDetail(res.data.data);
+      if (res?.data?.success) {
+        setItemDetail(res.data.data ?? null);
       } else {
-        message.error(res.data?.message || "Failed to fetch item details");
         setItemDetail(null);
+        setAlert({
+          type: "error",
+          text: res?.data?.message || "Failed to fetch item details",
+        });
       }
-    } catch (error) {
-      console.error("Error fetching item details:", error);
-      message.error("Error fetching details");
+    } catch (err) {
+      console.error("Error fetching item details:", err);
       setItemDetail(null);
+      setAlert({ type: "error", text: "Error fetching details" });
     } finally {
       setLoading(false);
     }
   };
 
+  // fetch current buyer rating (if buyer)
   const fetchUserRating = async () => {
-    if (!userData || userData.type !== "buyer") return;
+    if (!userData || userData.type !== "buyer" || !itemId) return;
     try {
       const res = await api.get(`/user/seller/items/${itemId}/my-rating`);
-      if (res.data?.success) {
-        setUserRating(res.data.data.userRating);
+      if (res?.data?.success) {
+        const ur = res.data.data?.userRating ?? null;
+        setUserRating(ur);
+        setRatingValue(ur ?? 0);
       } else {
         setUserRating(null);
       }
-    } catch {
+    } catch (err) {
+      console.warn("Failed to fetch user rating:", err);
       setUserRating(null);
     }
   };
 
   useEffect(() => {
-    if (!itemId) return;
     fetchDetails();
     fetchUserRating();
+    // we want to refetch when itemId or current user changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId, userData?.id]);
+  }, [itemId, userData?.id, userData?.type]);
 
-  const handleBack = () => {
-    navigate(-1); // More intuitive than navigating to /items
-  };
-
-  // Determine ownership
+  // owner check
   const isOwner = (() => {
     if (!userData || !itemDetail) return false;
-    const ownerId = itemDetail?.sellerId?._id || itemDetail?.sellerId;
-    const userId = userData.id || userData._id;
-    return ownerId && userId && ownerId.toString() === userId.toString();
+    const ownerId =
+      itemDetail?.sellerId?.id ?? itemDetail?.sellerId ?? itemDetail?.seller;
+    const userId = userData.id ?? userData._id;
+    try {
+      return (
+        ownerId &&
+        userId &&
+        ownerId.toString().trim() === userId.toString().trim()
+      );
+    } catch {
+      return false;
+    }
   })();
 
+  const handleBack = () => navigate(-1);
+
+  // delete
   const handleDelete = async () => {
     if (!isOwner) {
-      message.error("Only the seller can delete this item.");
+      setAlert({
+        type: "error",
+        text: "Only the seller can delete this item.",
+      });
+      setDeleteOpen(false);
       return;
     }
-
     try {
       setActionLoading(true);
       const res = await api.delete(`/user/seller/${itemId}`);
-      if (res.data?.success) {
-        message.success(res.data.message || "Item deleted");
+      if (res?.data?.success) {
+        setAlert({ type: "success", text: res.data.message || "Item deleted" });
+        setDeleteOpen(false);
         navigate("/dashboard");
       } else {
-        throw new Error(res.data?.message || "Delete failed");
+        throw new Error(res?.data?.message || "Delete failed");
       }
     } catch (err) {
       console.error("Delete failed:", err);
-      message.error("Failed to delete item");
+      setAlert({ type: "error", text: "Failed to delete item" });
     } finally {
       setActionLoading(false);
-      setDeleteModal(false);
     }
   };
 
+  // buy flow
   const handleBuy = () => {
     if (!userData) {
-      message.info("Please login to buy this item.");
+      setAlert({ type: "info", text: "Please login to buy this item." });
       navigate("/login");
       return;
     }
     if (userData.type !== "buyer") {
-      message.error("Only buyers can purchase items.");
+      setAlert({ type: "error", text: "Only buyers can purchase items." });
       return;
     }
     if (isOwner) {
-      message.error("You cannot buy your own item.");
+      setAlert({ type: "error", text: "You cannot buy your own item." });
       return;
     }
-    setBuyModal(true);
+    setBuyOpen(true);
   };
 
   const confirmBuy = async () => {
-    setBuyModal(false);
+    setBuyOpen(false);
     try {
       setActionLoading(true);
       const res = await api.post(`/user/orders/buy/${itemId}`);
-      if (res.data?.success) {
-        message.success(res.data.message || "Purchase successful");
+      if (res?.data?.success) {
+        setAlert({
+          type: "success",
+          text: res.data.message || "Purchase successful",
+        });
         if (typeof fetchMe === "function") await fetchMe();
         navigate("/dashboard");
       } else {
-        throw new Error(res.data?.message || "Purchase failed");
+        throw new Error(res?.data?.message || "Purchase failed");
       }
     } catch (err) {
       console.error("Purchase failed:", err);
-      message.error(
-        err?.response?.data?.message || "Failed to complete purchase"
-      );
+      const msg = err?.response?.data?.message || "Failed to complete purchase";
+      setAlert({ type: "error", text: msg });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Submit rating (buyers only)
-  const handleRatingSubmit = async (value) => {
+  // rating submit
+  const handleRatingSubmit = async (val) => {
+    // only buyers who are not owner can rate
     if (userData?.type !== "buyer" || isOwner) return;
-
     setRatingLoading(true);
+    setAlert(null);
     try {
       const res = await api.post(`/user/seller/items/${itemId}/rate`, {
-        rating: value,
+        rating: val,
       });
-      if (res.data?.success) {
-        message.success("Rating submitted successfully");
-        setUserRating(value);
-        // Refresh item details to show updated average
-        fetchDetails();
+      if (res?.data?.success) {
+        setAlert({ type: "success", text: "Rating submitted successfully" });
+        setUserRating(val);
+        // refresh details
+        await fetchDetails();
       } else {
-        message.error(res.data?.message || "Failed to submit rating");
+        setAlert({
+          type: "error",
+          text: res?.data?.message || "Failed to submit rating",
+        });
       }
     } catch (err) {
       console.error("Rating submission failed:", err);
-      message.error("Failed to submit rating");
+      setAlert({ type: "error", text: "Failed to submit rating" });
     } finally {
       setRatingLoading(false);
     }
   };
 
+  // helper to render image or fallback
   const renderImage = () => {
     const imgUrl =
       itemDetail?.photo?.url || itemDetail?.photo?.secure_url || null;
     if (!imgUrl) {
       return (
-        <div
-          className="d-flex align-items-center justify-content-center bg-light rounded"
-          style={{ height: 300 }}
-        >
-          <span>No image available</span>
+        <div className="flex items-center justify-center bg-gray-100 rounded h-80">
+          <span className="text-amber-600">No image available</span>
         </div>
       );
     }
     return (
-      <Card.Img
-        variant="top"
+      <img
         src={imgUrl}
         alt={itemDetail?.name || "item image"}
-        className="rounded"
-        style={{ objectFit: "cover", height: "100%" }}
+        className="w-full h-80 object-cover rounded"
         onError={(e) => {
-          e.target.src = "/placeholder-image.png";
+          // fallback to a placeholder file path
+          if (e.currentTarget.src !== "/placeholder-image.png") {
+            e.currentTarget.src = "/placeholder-image.png";
+          }
         }}
       />
     );
   };
 
-  if (loading) {
-    return (
-      <>
-        <NavBar />
-        <Container className="text-center py-5">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading item details...</span>
-          </Spinner>
-        </Container>
-      </>
-    );
-  }
-
-  if (!itemDetail) {
-    return (
-      <>
-        <NavBar />
-        <Container className="text-center py-5">
-          <h5 className="text-muted">Item not found</h5>
-          <p className="text-muted">
-            {`This item may have been removed or doesn't exist.`}
-          </p>
-          <Button variant="primary" onClick={handleBack}>
-            Go Back
-          </Button>
-        </Container>
-      </>
-    );
-  }
-
   return (
-    <>
-      <NavBar />
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header />
 
-      <Container className="mt-4">
-        <Card className="shadow-sm">
-          <Row className="g-0">
-            {/* Image column */}
-            <Col xs={12} md={7} className="p-3">
-              {renderImage()}
-            </Col>
+      <main className="flex-grow max-w-5xl mx-auto px-4 py-8">
+        {alert && (
+          <div
+            className={`mb-4 p-3 rounded ${
+              alert.type === "success"
+                ? "bg-emerald-50 text-emerald-700"
+                : alert.type === "error"
+                ? "bg-rose-50 text-rose-700"
+                : "bg-amber-50 text-amber-700"
+            }`}
+          >
+            {alert.text}
+          </div>
+        )}
 
-            {/* Details column */}
-            <Col xs={12} md={5}>
-              <Card.Body className="p-4">
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={handleBack}
-                  className="mb-3"
-                >
-                  ← Back
-                </Button>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="inline-block animate-spin rounded-full w-12 h-12 border-4 border-amber-300 border-t-transparent" />
+            <div className="mt-3 text-amber-600">Loading item details...</div>
+          </div>
+        ) : !itemDetail ? (
+          <div className="text-center py-20">
+            <h3 className="text-lg font-medium text-amber-800">
+              Item not found
+            </h3>
+            <p className="text-amber-600 mt-2">
+              {`This item may have been removed or doesn't exist.`}
+            </p>
+            <div className="mt-4">
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 bg-amber-700 text-white rounded"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="md:flex">
+              <div className="md:w-7/12 p-4">{renderImage()}</div>
 
-                <Card.Title className="mb-3">{itemDetail.name}</Card.Title>
-                <hr />
+              <div className="md:w-5/12 p-6 flex flex-col">
+                <div className="mb-4">
+                  <button
+                    onClick={handleBack}
+                    className="text-sm text-amber-700 hover:underline"
+                  >
+                    ← Back
+                  </button>
+                </div>
+
+                <h2 className="text-2xl font-semibold text-amber-800 mb-2">
+                  {itemDetail.name}
+                </h2>
 
                 <div className="mb-3">
-                  <strong className="d-block mb-1">Address:</strong>
-                  <span className="text-muted">
+                  <div className="text-sm text-gray-600">Address</div>
+                  <div className="text-amber-700">
                     {itemDetail.address || "N/A"}
-                  </span>
+                  </div>
                 </div>
 
                 <div className="mb-3">
-                  <strong className="d-block mb-1">Price (₹):</strong>
-                  <span className="text-success fw-bold fs-5">
+                  <div className="text-sm text-gray-600">Price (₹)</div>
+                  <div className="text-2xl font-bold text-emerald-700">
                     {itemDetail.price ?? "N/A"}
-                  </span>
+                  </div>
                 </div>
 
-                {/* Rating Section */}
-                <div className="mb-3">
-                  <strong className="d-block mb-1">Rating:</strong>
+                {/* Rating */}
+                <div className="mb-4">
+                  <div className="text-sm text-gray-600 mb-2">Rating</div>
+
                   {userData?.type === "buyer" && !isOwner ? (
-                    <div className="d-flex align-items-center gap-2">
-                      <Rate
-                        value={userRating ?? 0}
-                        onChange={handleRatingSubmit}
-                        disabled={ratingLoading}
-                        allowHalf
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <StarRow value={ratingValue} />
+                          <div className="text-sm text-amber-600">
+                            {ratingValue ? `${ratingValue} / 5` : "Not rated"}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          You can give 0.5 steps
+                        </div>
+                      </div>
+
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="0.5"
+                        value={ratingValue}
+                        onChange={(e) => setRatingValue(Number(e.target.value))}
+                        className="w-full"
+                        aria-label="Rating slider"
                       />
-                      {userRating !== null && (
-                        <small className="text-muted">
-                          You rated this {userRating} star
-                          {userRating !== 1 ? "s" : ""}
-                        </small>
-                      )}
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRatingSubmit(ratingValue)}
+                          disabled={ratingLoading}
+                          className={`px-3 py-1 rounded ${
+                            ratingLoading
+                              ? "bg-amber-300 text-white cursor-not-allowed"
+                              : "bg-amber-700 text-white"
+                          }`}
+                        >
+                          {ratingLoading ? "Saving..." : "Submit Rating"}
+                        </button>
+                        {userRating !== null && (
+                          <div className="text-sm text-amber-600">
+                            You rated: {userRating}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <div className="d-flex align-items-center gap-2">
-                      <Rate
-                        value={itemDetail.ratingAverage || 0}
-                        disabled
-                        allowHalf
-                      />
-                      <small className="text-muted">
-                        ({itemDetail.ratingCount || 0} rating
-                        {itemDetail.ratingCount !== 1 ? "s" : ""})
-                      </small>
+                    <div className="flex items-center gap-3">
+                      <StarRow value={itemDetail.ratingAverage ?? 0} />
+                      <div className="text-sm text-amber-600">
+                        ({itemDetail.ratingCount ?? 0} rating
+                        {(itemDetail.ratingCount ?? 0) !== 1 ? "s" : ""})
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <div className="mb-3">
-                  <strong className="d-block mb-1">Contact:</strong>
-                  <span className="text-muted">
+                  <div className="text-sm text-gray-600">Contact</div>
+                  <div className="text-amber-700">
                     {itemDetail.phone || "N/A"}
-                  </span>
-                </div>
-
-                <div className="mb-3">
-                  <strong className="d-block mb-1">Type:</strong>
-                  <span className="badge bg-info text-dark">
-                    {itemDetail.type || "N/A"}
-                  </span>
+                  </div>
                 </div>
 
                 <div className="mb-4">
-                  <h6 className="mb-2">Description</h6>
-                  <p className="text-muted">
+                  <div className="text-sm text-gray-600">Type</div>
+                  <div className="inline-block px-2 py-1 mt-1 rounded bg-amber-100 text-amber-800 text-sm">
+                    {itemDetail.type || "N/A"}
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </h4>
+                  <p className="text-gray-600">
                     {itemDetail.details || "No description provided."}
                   </p>
                 </div>
 
-                <div className="d-flex justify-content-between align-items-center">
+                <div className="mt-auto flex items-center justify-between">
                   <div>
                     {userData?.type === "buyer" && !isOwner && (
-                      <Button
-                        variant="success"
-                        size="sm"
+                      <button
                         onClick={handleBuy}
                         disabled={actionLoading}
+                        className={`px-4 py-2 rounded ${
+                          actionLoading
+                            ? "bg-amber-300 text-white cursor-not-allowed"
+                            : "bg-emerald-600 text-white"
+                        }`}
                       >
                         {actionLoading ? "Processing..." : "Buy Now"}
-                      </Button>
+                      </button>
                     )}
 
                     {isOwner && (
-                      <>
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
+                      <div className="flex items-center gap-2">
+                        <button
                           onClick={() => navigate(`/edit-item/${itemId}`)}
-                          className="me-2"
                           disabled={actionLoading}
+                          className="px-3 py-1 border rounded text-sm"
                         >
                           Edit
-                        </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => setDeleteModal(true)}
+                        </button>
+                        <button
+                          onClick={() => setDeleteOpen(true)}
                           disabled={actionLoading}
+                          className="px-3 py-1 bg-rose-600 text-white rounded text-sm"
                         >
                           Delete
-                        </Button>
-                      </>
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  <small className="text-muted">
-                    Posted:{" "}
-                    {new Date(itemDetail.createdAt).toLocaleDateString()}
-                  </small>
+                  <div className="text-sm text-gray-500">
+                    Posted: {formatDateIST(itemDetail?.createdAt)}
+                  </div>
                 </div>
-              </Card.Body>
-            </Col>
-          </Row>
-        </Card>
-      </Container>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        title="Confirm Delete"
-        open={deleteModal}
-        onOk={handleDelete}
-        onCancel={() => setDeleteModal(false)}
-        okText="Delete"
-        okButtonProps={{ danger: true }}
-        confirmLoading={actionLoading}
-      >
-        <p>
-          Are you sure you want to delete this item? This action cannot be
-          undone.
-        </p>
-      </Modal>
+      <Footer />
 
-      {/* Buy Confirmation Modal */}
-      <Modal
-        title="Confirm Purchase"
-        open={buyModal}
-        onOk={confirmBuy}
-        onCancel={() => setBuyModal(false)}
-        okText="Confirm Buy"
-        confirmLoading={actionLoading}
-      >
-        <p>Are you sure you want to buy this item?</p>
-      </Modal>
-    </>
+      {/* Delete modal */}
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md bg-white rounded-lg overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold text-rose-700">
+                Confirm Delete
+              </h3>
+            </div>
+            <div className="p-4">
+              <p>
+                Are you sure you want to delete this item? This action cannot be
+                undone.
+              </p>
+              <div className="mt-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteOpen(false)}
+                  className="px-3 py-1 border rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={actionLoading}
+                  className={`px-3 py-1 rounded ${
+                    actionLoading
+                      ? "bg-rose-300 text-white cursor-not-allowed"
+                      : "bg-rose-600 text-white"
+                  }`}
+                >
+                  {actionLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Buy modal */}
+      {buyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md bg-white rounded-lg overflow-hidden">
+            <div className="p-4 border-b">
+              <h3 className="text-lg font-semibold text-amber-800">
+                Confirm Purchase
+              </h3>
+            </div>
+            <div className="p-4">
+              <p>
+                Are you sure you want to buy <strong>{itemDetail?.name}</strong>{" "}
+                for <strong>₹{itemDetail?.price}</strong>?
+              </p>
+              <div className="mt-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setBuyOpen(false)}
+                  className="px-3 py-1 border rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBuy}
+                  disabled={actionLoading}
+                  className={`px-3 py-1 rounded ${
+                    actionLoading
+                      ? "bg-amber-300 text-white cursor-not-allowed"
+                      : "bg-emerald-600 text-white"
+                  }`}
+                >
+                  {actionLoading ? "Processing..." : "Confirm Buy"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-};
-
-export default ItemDetails;
+}

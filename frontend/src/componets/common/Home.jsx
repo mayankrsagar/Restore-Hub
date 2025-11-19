@@ -1,124 +1,87 @@
-// src/componets/common/Home.jsx
 import { useContext } from 'react';
 
-import {
-  Button,
-  Container,
-  Nav,
-  Navbar,
-} from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 
 import { UserContext } from '../../App';
 import AllItems from './AllItems';
+import Footer from './Footer';
+import Header from './Header';
 
 const Home = () => {
   const { userData } = useContext(UserContext);
-
   const isLoggedIn = !!userData;
 
   return (
-    <>
-      <Navbar expand="lg" className="bg-body-tertiary mb-3">
-        <Container fluid>
-          <Navbar.Brand as={Link} to="/">
-            <h2 style={{ margin: 0 }}>Restore Hub</h2>
-          </Navbar.Brand>
+    <div className="min-h-screen flex flex-col">
+      <Header />
 
-          <Navbar.Toggle aria-controls="navbarScroll" />
-          <Navbar.Collapse id="navbarScroll">
-            <Nav className="ms-auto">
-              <Nav.Link as={Link} to="/">
-                Home
-              </Nav.Link>
-
-              {!isLoggedIn && (
-                <>
-                  <Nav.Link as={Link} to="/login">
-                    Login
-                  </Nav.Link>
-                  <Nav.Link as={Link} to="/register">
-                    Register
-                  </Nav.Link>
-                </>
-              )}
-
-              {isLoggedIn && (
-                <>
-                  <Nav.Link as={Link} to="/dashboard">
-                    Dashboard
-                  </Nav.Link>
-                </>
-              )}
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
-
-      <div
-        id="home-container"
-        className="first-container"
-        style={{ padding: "3rem 0" }}
-      >
-        <Container>
-          <div
-            className="content-home"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-              gap: 20,
-              padding: "2rem 1rem",
-            }}
-          >
+      <main className="flex-grow">
+        <section className="bg-gradient-to-b from-amber-50 to-white py-16 ">
+          <div className="max-w-4xl mx-auto px-4 text-center py-4">
             {isLoggedIn ? (
               <>
-                <p style={{ fontSize: "1.8rem", fontWeight: 500 }}>
-                  Welcome back, <strong>{userData?.name || "User"}</strong> 👋
+                <h2 className="text-3xl font-extrabold text-amber-800">
+                  Welcome back, {userData?.name || "User"} 👋
+                </h2>
+                <p className="mt-3 text-amber-600">
+                  Manage your items, post new restorations and connect with the
+                  community.
                 </p>
-                <p style={{ fontSize: "1.2rem" }}>
-                  Manage your items, explore the community, and keep restoring!
-                </p>
-                <Button
-                  as={Link}
-                  to="/dashboard"
-                  variant="success"
-                  size="md"
-                  className="m-2"
-                >
-                  Go to Dashboard
-                </Button>
+                <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+                  <Link
+                    to="/dashboard"
+                    className="px-5 py-2 rounded-md bg-amber-700 text-white font-medium"
+                  >
+                    Go to Dashboard
+                  </Link>
+                  <Link
+                    to="/items"
+                    className="px-5 py-2 rounded-md border border-amber-200 text-amber-700"
+                  >
+                    Browse Items
+                  </Link>
+                </div>
               </>
             ) : (
               <>
-                <p style={{ fontSize: "1.6rem", lineHeight: 1.4 }}>
-                  Revitalizing Lives,
-                  <br />
-                  Rebuilding Communities: <strong>Restoration Hub</strong>
+                <h2 className="text-3xl font-extrabold text-amber-800">
+                  Revitalizing Lives — Rebuilding Communities
+                </h2>
+                <p className="mt-3 text-amber-600">
+                  Join Restore Hub to list restored items, buy renewed goods,
+                  and support local restorers.
                 </p>
-
-                <Button
-                  as={Link}
-                  to="/register"
-                  variant="warning"
-                  size="md"
-                  className="m-2"
-                >
-                  Want to sell? Click here
-                </Button>
+                <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+                  <Link
+                    to="/register"
+                    className="px-5 py-2 rounded-md bg-amber-600 text-white font-medium"
+                  >
+                    Want to sell? Register
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-5 py-2 rounded-md border border-amber-200 text-amber-700"
+                  >
+                    Login
+                  </Link>
+                </div>
               </>
             )}
           </div>
-        </Container>
-      </div>
+        </section>
 
-      <Container className="second-container my-5">
-        <h2 className="text-center my-4">Available Products</h2>
-        <AllItems />
-      </Container>
-    </>
+        <section className="py-12">
+          <div className="max-w-6xl mx-auto px-4">
+            <h3 className="text-2xl font-semibold text-center text-amber-800 mb-6">
+              Available Products
+            </h3>
+            <AllItems />
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </div>
   );
 };
 

@@ -8,6 +8,7 @@ import morgan from "morgan";
 
 import connectToDB from "./config/connect.js";
 import commonRoutes from "./routes/commonRoutes.js";
+import contactRoutes from "./routes/contact.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sellerRoutes from "./routes/sellerRoutes.js";
 
@@ -57,8 +58,9 @@ app.use(
 
 // ---------- Routes ----------
 app.use("/api/user", commonRoutes);
-// app.use("/api/user", authRoutes); // if you have authRoutes (e.g., /me, /logout)
+
 app.use("/api/user/seller", sellerRoutes);
+app.use("/api/contact", contactRoutes);
 
 // ---------- Health check ----------
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));

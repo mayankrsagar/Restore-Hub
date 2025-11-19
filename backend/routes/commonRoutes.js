@@ -1,6 +1,7 @@
-import express from "express";
+import express from 'express';
 
 import {
+  deleteUserController,
   getMeController,
   loginController,
   logoutController,
@@ -9,9 +10,9 @@ import {
   sendItemDetailsController,
   updateAvatarController,
   updateProfileController,
-} from "../controllers/commonController.js";
-import authMiddleware from "../middlewares/authMiddleware.js";
-import upload from "../middlewares/multer.js";
+} from '../controllers/commonController.js';
+import authMiddleware from '../middlewares/authMiddleware.js';
+import upload from '../middlewares/multer.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.post("/register", registerController);
 
 router.post("/login", loginController);
 
-router.get("/getallitems", authMiddleware, sendAllItemsController);
+router.get("/getallitems", sendAllItemsController);
 
 router.get(
   "/fetchitemdetails/:itemId",
@@ -37,4 +38,5 @@ router.post(
 
 router.post("/logout", authMiddleware, logoutController);
 router.get("/me", authMiddleware, getMeController);
+router.delete("/me", authMiddleware, deleteUserController);
 export default router;

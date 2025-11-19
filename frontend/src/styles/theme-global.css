@@ -1,0 +1,108 @@
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --muted: #e6eef6;
+  --primary: #a78bfa;
+  --primary-600: #8b5cf6;
+  --accent: #fbcfe8;
+  --warm: #fde68a;
+  --text: #334155;
+  --subtext: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 10px 25px rgba(16, 24, 40, 0.06);
+  --radius: 12px;
+}
+
+/* system dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #071122;
+    --surface: rgba(255, 255, 255, 0.03);
+    --muted: rgba(167, 139, 250, 0.06);
+    --primary: #c4b5fd;
+    --primary-600: #a78bfa;
+    --accent: #fbcfe8;
+    --warm: #fde68a;
+    --text: #e6eef6;
+    --subtext: #94a3b8;
+    --border: rgba(255, 255, 255, 0.06);
+    --shadow: 0 8px 20px rgba(2, 6, 23, 0.6);
+  }
+}
+
+/* forced overrides (class-based) */
+.theme-dark {
+  /* apply to <html> or <body> to force dark */
+  --bg: #071122;
+  --surface: rgba(255, 255, 255, 0.03);
+  --primary: #c4b5fd;
+  --text: #e6eef6;
+  --subtext: #94a3b8;
+  --border: rgba(255, 255, 255, 0.06);
+  --shadow: 0 8px 20px rgba(2, 6, 23, 0.6);
+}
+.theme-light {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --primary: #a78bfa;
+  --text: #334155;
+  --subtext: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 10px 25px rgba(16, 24, 40, 0.06);
+}
+
+/* common helpers using variables */
+.app-bg {
+  background: var(--bg);
+  color: var(--text);
+}
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.btn-primary {
+  background: linear-gradient(90deg, var(--primary), var(--primary-600));
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--primary);
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+}
+.text-muted {
+  color: var(--subtext);
+}
+.border-muted {
+  border-color: var(--border);
+}
+
+/* small responsive utilities you can use */
+.container-max {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
